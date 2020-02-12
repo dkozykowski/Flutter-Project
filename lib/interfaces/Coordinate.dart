@@ -11,6 +11,14 @@ class Coordinate
     return _x;
   }
 
+  set x(int value) {
+    this._x = value;
+  }
+
+  set y(int value) {
+    this._y = value;
+  }
+
   get y {
     return _y;
   }
