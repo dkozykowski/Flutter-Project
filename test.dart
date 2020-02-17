@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:image/image.dart';
 
 void main() {
-  Image img = decodeImage(File('img.jpg').readAsBytesSync());
+  Image img = decodeImage(File('img5.jpg').readAsBytesSync());
   PageDetection.getPageCoordinates(img);
   return;
 }
@@ -25,36 +25,22 @@ class RGB
 
 class PageDetection
 {
-
-
-
   //find and return corners coordinates of a page in the picture
   static List getPageCoordinates(Image picture) {
     var height = picture.height;
     var width = picture.width;
+
     bool bigPicture = false;
     if (width * height > 10e6) {
       bigPicture = true;
       width = width ~/ 3 + 1;
       height = height ~/ 3 + 1;
     }
-    final T1 = 90;
-    final T2 = 40;
+
     dynamic visited = new List.generate(width, (_)=> new List(height));
     dynamic pixels = new List.generate(width, (_)=> new List(height));
     dynamic laplacian = new List.generate(width, (_)=> new List(height));
-    dynamic done = new List.generate(width, (_)=> new List(height));
     dynamic filtered = new List.generate(width, (_)=> new List(height));
-    dynamic boss = new List.generate(width, (_)=> new List(height));
-    dynamic quantity = new List.generate(width, (_)=> new List(height));
-
-
-    Queue queue = new Queue();
-    Queue type1 = new Queue();
-    Queue type2 = new Queue();
-    Queue type3 = new Queue();
-    Queue type4 = new Queue();
-    Queue type5 = new Queue();
 
     //do usuniecia
     getintcolor(dynamic a) {
@@ -99,32 +85,48 @@ class PageDetection
       return (a.r + a.g + a.b);
     }
 
-    find(dynamic a) {
-      int x = a.first;
-      int y = a.second;
-      if (boss[x][y] == a) return a;
-      boss[x][y] = find(boss[x][y]);
-      return boss[x][y];
-    }
-
-    union(dynamic a, dynamic b) {
-      a = find(a);
-      b = find(b);
-      if (a == b) return;
-      if (quantity[a.first][a.second] >= quantity[b.first][b.second]) {
-        quantity[a.first][a.second] += quantity[b.first][b.second];
-        boss[b.first][b.second] = a;
-      }
-      quantity[b.first][b.second] += quantity[a.first][a.second];
-      boss[a.first][a.second] = a;
-    }
-
     for (int i = 0; i < width; i++) {
       for (int o = 0; o < height; o++) {
         pixels[i][o] = RGB(0, 0, 0);
         filtered[i][o] = RGB(0, 0, 0);
         laplacian[i][o] = RGB(0, 0, 0);
       }
+    }
+
+    //return false if too few white pixels in laplacian colors found
+    //or if no change in colors of the given picture found
+    //otherwise there is an edge, return true
+    edge(dynamic a, dynamic b) {
+      //print("punkty takie jak: " + (a.first).toString() + ":" + (a.second).toString() + " z " + (b.first).toString() + ":" + (b.second).toString());
+      dynamic colorA = RGB(0, 0, 0);
+      dynamic colorB = RGB(0, 0, 0);
+      dynamic laplacianA = RGB(0, 0, 0);
+      dynamic laplacianB = RGB(0, 0, 0);
+      for (int i = maxint(a.first - 1, 0); i <= minint(a.first + 1, width - 1); i++) {
+        for (int o = maxint(a.second - 1, 0); o <= minint(a.second + 1, height - 1); o++) {
+          colorA = addRGB(colorA, pixels[i][o]);
+        }
+      }
+      for (int i = maxint(b.first - 1, 0); i <= minint(b.first + 1, width - 1); i++) {
+        for (int o = maxint(b.second - 1, 0); o <= minint(b.second + 1, height - 1); o++) {
+          colorB = addRGB(colorB, pixels[i][o]);
+        }
+      }
+      for (int i = maxint(a.first - 1, 1); i <= minint(a.first + 1, width - 2); i++) {
+        for (int o = maxint(a.second - 1, 1); o <= minint(a.second + 1, height - 2); o++) {
+          laplacianA = addRGB(laplacianA, laplacian[i][o]);
+        }
+      }
+      for (int i = maxint(b.first - 1, 1); i <= minint(b.first + 1, width - 2); i++) {
+        for (int o = maxint(b.second - 1, 1); o <= minint(b.second + 1, height - 2); o++) {
+          laplacianB = addRGB(laplacianB, laplacian[i][o]);
+        }
+      }
+      //print("wartosci jak" + (avarageRGB(laplacianA)).toString() + " i " + (avarageRGB(laplacianB)).toString());
+      //int ile = 15;
+      return ((avarageRGB(laplacianB)-avarageRGB(laplacianA)).abs() > 220);
+      //return ((laplacianA.r - laplacianB.r).abs() > ile && (laplacianA.g - laplacianB.g).abs() > ile && (laplacianA.b - laplacianB.b).abs() > ile);
+      //return (((avarageRGB(colorA) - avarageRGB(colorB)).abs() > 100) && ((avarageRGB(laplacianA) - avarageRGB(laplacianB)).abs() > 100));
     }
 
     //make smaller copy of picture by compressing 3x3 -> 1 pixel
@@ -194,13 +196,10 @@ class PageDetection
       }
     }
 
-    int maxRGB = 0;
     //use Laplacian Algorithm to find edges
     for (int i = 2; i < width - 1; i++) {
       for (int o = 2; o < height - 1; o++) {
-        visited[i][o] = 0;
-        boss[i][o] = Pair(i, o);
-        quantity[i][o] = 1;
+        visited[i][o] = false;
         laplacian[i][o] = RGB(
             filtered[i][o].r * 9, filtered[i][o].g * 9, filtered[i][o].b * 9);
         for (int z = i - 1; z <= i + 1; z++) {
@@ -209,267 +208,53 @@ class PageDetection
           }
         }
         laplacian[i][o] = fixRGB(laplacian[i][o]);
-        maxRGB = maxint(maxRGB, avarageRGB(laplacian[i][o]));
       }
     }
 
-    //apply hard and low pixels to find real and fake edges
-    for (int i = 2; i < width - 1; i++) {
-      for (int o = 2; o < height - 1; o++) {
-        if (avarageRGB(laplacian[i][o]) >= T2) {
-          type5.add(Pair(i, o));
-          visited[i][o] = 1;
-        }
-        else
-          done[i][o] = RGB(0, 0, 0);
-      }
-    }
-
-
-    //Breadth-First Search on pixels to remove lonely 'edges'
-    //type 5 for strong pixels (over 120 avarage RGB)
-    //type under 5 - for weaker pixels (under 120 but
-    //over T1 avarage RGB), number shows how many tiles away is
-    //the nearest strong pixel
-    while(type5.isNotEmpty) {
-      int i = type5.first.first;
-      int o = type5.first.second;
-      type5.removeFirst();
-      if (i - 1 >= 2) {
-        if (visited[i - 1][0] == 1) union(Pair(i, o), Pair (i - 1, o));
-        else if (visited[i - 1][o] == 0 && avarageRGB(laplacian[i - 1][o]) > T1) {
-          type4.add(Pair(i - 1, o));
-          visited[i - 1][o] = 1;
-          union(Pair(i - 1, o), Pair(i, o));
-        }
-      }
-      if (i + 1 < width - 1) {
-        if (visited[i + 1][o] == 1) union(Pair(i + 1, o), Pair(i, o));
-        if (visited[i + 1][o] == 0 && avarageRGB(laplacian[i + 1][o]) > T1) {
-          type4.add(Pair(i + 1, o));
-          visited[i + 1][o] = 1;
-          union(Pair(i + 1, o), Pair(i, o));
-        }
-      }
-      if (o - 1 >= 2) {
-        if (visited[i][o - 1] == 1) union(Pair(i, o - 1), Pair(i, o));
-        if (visited[i][o - 1] == 0 && avarageRGB(laplacian[i][o - 1]) > T1) {
-          type4.add(Pair(i, o - 1));
-          visited[i][o - 1] = 1;
-          union(Pair(i, o - 1), Pair(i, o));
-        }
-      }
-      if (o + 1 < height - 1) {
-        if (visited[i][o + 1] == 1) union(Pair(i, o + 1), Pair(i, o));
-        if (visited[i][o + 1] == 0 && avarageRGB(laplacian[i][o + 1]) > T1) {
-          type4.add(Pair(i, o + 1));
-          visited[i][o + 1] = 1;
-          union(Pair(i, o + 1), Pair(i, o));
-        }
-      }
-      done[i][o] = RGB(255, 255, 255);
-    }
-    while(type4.isNotEmpty) {
-      int i = type4.first.first;
-      int o = type4.first.second;
-      type4.removeFirst();
-      if (i - 1 >= 2) {
-        if (visited[i - 1][0] == 1) union(Pair(i, o), Pair (i - 1, o));
-        else if (visited[i - 1][o] == 0 && avarageRGB(laplacian[i - 1][o]) > T1) {
-          type4.add(Pair(i - 1, o));
-          visited[i - 1][o] = 1;
-          union(Pair(i - 1, o), Pair(i, o));
-        }
-      }
-      if (i + 1 < width - 1) {
-        if (visited[i + 1][o] == 1) union(Pair(i + 1, o), Pair(i, o));
-        if (visited[i + 1][o] == 0 && avarageRGB(laplacian[i + 1][o]) > T1) {
-          type4.add(Pair(i + 1, o));
-          visited[i + 1][o] = 1;
-          union(Pair(i + 1, o), Pair(i, o));
-        }
-      }
-      if (o - 1 >= 2) {
-        if (visited[i][o - 1] == 1) union(Pair(i, o - 1), Pair(i, o));
-        if (visited[i][o - 1] == 0 && avarageRGB(laplacian[i][o - 1]) > T1) {
-          type4.add(Pair(i, o - 1));
-          visited[i][o - 1] = 1;
-          union(Pair(i, o - 1), Pair(i, o));
-        }
-      }
-      if (o + 1 < height - 1) {
-        if (visited[i][o + 1] == 1) union(Pair(i, o + 1), Pair(i, o));
-        if (visited[i][o + 1] == 0 && avarageRGB(laplacian[i][o + 1]) > T1) {
-          type4.add(Pair(i, o + 1));
-          visited[i][o + 1] = 1;
-          union(Pair(i, o + 1), Pair(i, o));
-        }
-      }
-      done[i][o] = RGB(255, 255, 255);
-    }
-    while(type3.isNotEmpty) {
-      int i = type3.first.first;
-      int o = type3.first.second;
-      type3.removeFirst();
-      if (i - 1 >= 2) {
-        if (visited[i - 1][0] == 1) union(Pair(i, o), Pair (i - 1, o));
-        else if (visited[i - 1][o] == 0 && avarageRGB(laplacian[i - 1][o]) > T1) {
-          type3.add(Pair(i - 1, o));
-          visited[i - 1][o] = 1;
-          union(Pair(i - 1, o), Pair(i, o));
-        }
-      }
-      if (i + 1 < width - 1) {
-        if (visited[i + 1][o] == 1) union(Pair(i + 1, o), Pair(i, o));
-        if (visited[i + 1][o] == 0 && avarageRGB(laplacian[i + 1][o]) > T1) {
-          type3.add(Pair(i + 1, o));
-          visited[i + 1][o] = 1;
-          union(Pair(i + 1, o), Pair(i, o));
-        }
-      }
-      if (o - 1 >= 2) {
-        if (visited[i][o - 1] == 1) union(Pair(i, o - 1), Pair(i, o));
-        if (visited[i][o - 1] == 0 && avarageRGB(laplacian[i][o - 1]) > T1) {
-          type3.add(Pair(i, o - 1));
-          visited[i][o - 1] = 1;
-          union(Pair(i, o - 1), Pair(i, o));
-        }
-      }
-      if (o + 1 < height - 1) {
-        if (visited[i][o + 1] == 1) union(Pair(i, o + 1), Pair(i, o));
-        if (visited[i][o + 1] == 0 && avarageRGB(laplacian[i][o + 1]) > T1) {
-          type3.add(Pair(i, o + 1));
-          visited[i][o + 1] = 1;
-          union(Pair(i, o + 1), Pair(i, o));
-        }
-      }
-      done[i][o] = RGB(255, 255, 255);
-    }
-    while(type2.isNotEmpty) {
-      int i = type2.first.first;
-      int o = type2.first.second;
-      type2.removeFirst();
-      if (i - 1 >= 2) {
-        if (visited[i - 1][0] == 1) union(Pair(i, o), Pair (i - 1, o));
-        else if (visited[i - 1][o] == 0 && avarageRGB(laplacian[i - 1][o]) > T1) {
-          type2.add(Pair(i - 1, o));
-          visited[i - 1][o] = 1;
-          union(Pair(i - 1, o), Pair(i, o));
-        }
-      }
-      if (i + 1 < width - 1) {
-        if (visited[i + 1][o] == 1) union(Pair(i + 1, o), Pair(i, o));
-        if (visited[i + 1][o] == 0 && avarageRGB(laplacian[i + 1][o]) > T1) {
-          type2.add(Pair(i + 1, o));
-          visited[i + 1][o] = 1;
-          union(Pair(i + 1, o), Pair(i, o));
-        }
-      }
-      if (o - 1 >= 2) {
-        if (visited[i][o - 1] == 1) union(Pair(i, o - 1), Pair(i, o));
-        if (visited[i][o - 1] == 0 && avarageRGB(laplacian[i][o - 1]) > T1) {
-          type2.add(Pair(i, o - 1));
-          visited[i][o - 1] = 1;
-          union(Pair(i, o - 1), Pair(i, o));
-        }
-      }
-      if (o + 1 < height - 1) {
-        if (visited[i][o + 1] == 1) union(Pair(i, o + 1), Pair(i, o));
-        if (visited[i][o + 1] == 0 && avarageRGB(laplacian[i][o + 1]) > T1) {
-          type2.add(Pair(i, o + 1));
-          visited[i][o + 1] = 1;
-          union(Pair(i, o + 1), Pair(i, o));
-        }
-      }
-      done[i][o] = RGB(255, 255, 255);
-    }
-    while(type1.isNotEmpty) {
-      int i = type1.first.first;
-      int o = type1.first.second;
-      type1.removeFirst();
-      if (i - 1 >= 2) {
-        if (visited[i - 1][0] == 1) union(Pair(i, o), Pair (i - 1, o));
-        else if (visited[i - 1][o] == 0 && avarageRGB(laplacian[i - 1][o]) > T1) {
-          type1.add(Pair(i - 1, o));
-          visited[i - 1][o] = 1;
-          union(Pair(i - 1, o), Pair(i, o));
-        }
-      }
-      if (i + 1 < width - 1) {
-        if (visited[i + 1][o] == 1) union(Pair(i + 1, o), Pair(i, o));
-        if (visited[i + 1][o] == 0 && avarageRGB(laplacian[i + 1][o]) > T1) {
-          type1.add(Pair(i + 1, o));
-          visited[i + 1][o] = 1;
-          union(Pair(i + 1, o), Pair(i, o));
-        }
-      }
-      if (o - 1 >= 2) {
-        if (visited[i][o - 1] == 1) union(Pair(i, o - 1), Pair(i, o));
-        if (visited[i][o - 1] == 0 && avarageRGB(laplacian[i][o - 1]) > T1) {
-          type1.add(Pair(i, o - 1));
-          visited[i][o - 1] = 1;
-          union(Pair(i, o - 1), Pair(i, o));
-        }
-      }
-      if (o + 1 < height - 1) {
-        if (visited[i][o + 1] == 1) union(Pair(i, o + 1), Pair(i, o));
-        if (visited[i][o + 1] == 0 && avarageRGB(laplacian[i][o + 1]) > T1) {
-          type1.add(Pair(i, o + 1));
-          visited[i][o + 1] = 1;
-          union(Pair(i, o + 1), Pair(i, o));
-        }
-      }
-      done[i][o] = RGB(255, 255, 255);
-    }
-
-    //remove noise using find & union
-    for (int i = 2; i < width - 1; i++) {
-      for (int o = 2; o < height - 1; o++) {
-        dynamic a = find(Pair(i, o));
-        if (quantity[a.first][a.second] < (height * width ~/ 9000))
-          done[i][o] = RGB(0, 0, 0);
-      }
-    }
-
+    final distance = 4;
+    Queue queue = new Queue();
+    queue.add(Pair(distance, ((height - 6) ~/ distance) * distance));
+    queue.add(Pair(distance, distance));
+    queue.add(Pair(((width - 6) ~/ distance) * distance, distance));
+    queue.add(Pair(((width - 6) ~/ distance) * distance, ((height - 6) ~/ distance) * distance));
+    visited[distance][((height - 6) ~/ distance) * distance] = true;
+    visited[distance][distance] = true;
+    visited[((width - 6) ~/ distance) * distance][distance] = true;
+    visited[((width - 6) ~/ distance) * distance][((height - 6) ~/ distance) * distance] = true;
 
     //do usuniecia
-    for (int i = 3; i < width - 2; i++) {
-      for (int o = 3; o < height - 2; o++) {
-        picture[i + o * picture.width] = getintcolor(done[i][o]);
-      }
-    }
-
-    File('img2_new.png').writeAsBytesSync(encodePng(picture));
-    exit(0);
+    //print(edge(Pair(((width - 6) ~/ distance) * distance, ((height - 6) ~/ distance) * distance), Pair(((width - 6) ~/ distance) * distance, ((height - 6) ~/ distance) * distance - distance)));
+    //exit(0);
     //dotad
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     int startx = width ~/ 2;
     int starty = height ~/ 2;
-
-
     dynamic corners = new List();
     for (int i = 0; i < 4; i++) corners.add(Pair(startx, starty));
 
     //Breadth First Search to find borders of the page
     while(queue.isNotEmpty) {
       dynamic a = queue.first;
-      //find the farthest point of the paper on each quarter - those should be corners of page
+      queue.removeFirst();
+
+      if (a.first - distance > 1 && visited[a.first - distance][a.second] == false && edge(a, Pair(a.first - distance, a.second)) == false) {
+        queue.add(Pair(a.first - distance, a.second));
+        visited[a.first - distance][a.second] = true;
+      }
+      if (a.first + distance < width - 1 && visited[a.first + distance][a.second] == false && edge(a, Pair(a.first + distance, a.second)) == false) {
+        queue.add(Pair(a.first + distance, a.second));
+        visited[a.first + distance][a.second] = true;
+      }
+      if (a.second - distance > 1 && visited[a.first][a.second - distance] == false && edge(a, Pair(a.first, a.second - distance)) == false) {
+        queue.add(Pair(a.first, a.second - distance));
+        visited[a.first][a.second - distance] = true;
+      }
+      if (a.second + distance < height - 1 && visited[a.first][a.second + distance] == false && edge(a, Pair(a.first, a.second + distance)) == false) {
+        queue.add(Pair(a.first, a.second + distance));
+        visited[a.first][a.second + distance] = true;
+      }
+
+      /*find the farthest point of the paper on each quarter - those should be corners of page
       if (a.first >= startx && a.second >= starty &&
           square(a.first - startx) + square(a.second - starty) >
               square(corners[0].first - startx) +
@@ -490,9 +275,32 @@ class PageDetection
               square(corners[3].first - startx) +
                   square(corners[3].second - starty))
         corners[3] = a;
-
-      queue.removeFirst();
+       */
     }
+
+
+    //do usuniecia
+    if (bigPicture == false) {
+      for (int i = 3; i < width - 2; i++) {
+        for (int o = 3; o < height - 2; o++)
+          picture[i + o * picture.width] = getintcolor(laplacian[i][o]);
+      }
+    }
+    else {
+      for (int i = 6; i < (picture.width ~/3) * 3 - 6; i++) {
+        for (int o = 6; o < (picture.height ~/3) * 3 - 6; o++)
+          picture[i + o * picture.width] = getintcolor(laplacian[i~/3][o~/3]);
+      }
+      for (int i = 6; i < (picture.width ~/3) * 3 - 6; i++) {
+        for (int o = 6; o < (picture.height ~/3) * 3 - 6; o++)
+          if (visited[i ~/ 3][o ~/ 3] == true) picture[i + o * picture.width] = getintcolor(RGB(0, 0, 255));
+      }
+    }
+
+
+    File('img_done.png').writeAsBytesSync(encodePng(picture));
+    exit(0);
+    //dotad
 
     for (int i=0; i<4; i++)
     {
