@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:image/image.dart';
 
 void main() {
-  Image img = decodeImage(File('img5.jpg').readAsBytesSync());
+  Image img = decodeImage(File('img2.jpg').readAsBytesSync());
   PageDetection.getPageCoordinates(img);
   return;
 }
@@ -41,6 +41,8 @@ class PageDetection
     dynamic pixels = new List.generate(width, (_)=> new List(height));
     dynamic laplacian = new List.generate(width, (_)=> new List(height));
     dynamic filtered = new List.generate(width, (_)=> new List(height));
+    dynamic agent = new List.generate(width, (_)=> new List(height));
+    dynamic quantity = new List.generate(width, (_)=> new List(height));
 
     //do usuniecia
     getintcolor(dynamic a) {
@@ -85,6 +87,27 @@ class PageDetection
       return (a.r + a.g + a.b);
     }
 
+
+    //Find & Union
+    find(dynamic a) {
+      if (agent[a.first][a.second] == a) return a;
+      agent[a.first][a.second] = find(agent[a.first][a.second]);
+      return agent[a.first][a.second];
+    }
+
+    union(dynamic a, dynamic b) {
+      a = find(a);
+      b = find(b);
+      if (a == b) return;
+      if (quantity[a.first][a.second] >= quantity[b.first][b.second]) {
+        quantity[a.first][a.second] += quantity[b.first][b.second];
+        agent[b.first][b.second] = a;
+      }
+      quantity[b.first][b.second] += quantity[a.first][a.second];
+      agent[a.first][a.second] = a;
+    }
+
+
     for (int i = 0; i < width; i++) {
       for (int o = 0; o < height; o++) {
         pixels[i][o] = RGB(0, 0, 0);
@@ -97,21 +120,8 @@ class PageDetection
     //or if no change in colors of the given picture found
     //otherwise there is an edge, return true
     edge(dynamic a, dynamic b) {
-      //print("punkty takie jak: " + (a.first).toString() + ":" + (a.second).toString() + " z " + (b.first).toString() + ":" + (b.second).toString());
-      dynamic colorA = RGB(0, 0, 0);
-      dynamic colorB = RGB(0, 0, 0);
       dynamic laplacianA = RGB(0, 0, 0);
       dynamic laplacianB = RGB(0, 0, 0);
-      for (int i = maxint(a.first - 1, 0); i <= minint(a.first + 1, width - 1); i++) {
-        for (int o = maxint(a.second - 1, 0); o <= minint(a.second + 1, height - 1); o++) {
-          colorA = addRGB(colorA, pixels[i][o]);
-        }
-      }
-      for (int i = maxint(b.first - 1, 0); i <= minint(b.first + 1, width - 1); i++) {
-        for (int o = maxint(b.second - 1, 0); o <= minint(b.second + 1, height - 1); o++) {
-          colorB = addRGB(colorB, pixels[i][o]);
-        }
-      }
       for (int i = maxint(a.first - 1, 1); i <= minint(a.first + 1, width - 2); i++) {
         for (int o = maxint(a.second - 1, 1); o <= minint(a.second + 1, height - 2); o++) {
           laplacianA = addRGB(laplacianA, laplacian[i][o]);
@@ -122,11 +132,7 @@ class PageDetection
           laplacianB = addRGB(laplacianB, laplacian[i][o]);
         }
       }
-      //print("wartosci jak" + (avarageRGB(laplacianA)).toString() + " i " + (avarageRGB(laplacianB)).toString());
-      //int ile = 15;
       return ((avarageRGB(laplacianB)-avarageRGB(laplacianA)).abs() > 220);
-      //return ((laplacianA.r - laplacianB.r).abs() > ile && (laplacianA.g - laplacianB.g).abs() > ile && (laplacianA.b - laplacianB.b).abs() > ile);
-      //return (((avarageRGB(colorA) - avarageRGB(colorB)).abs() > 100) && ((avarageRGB(laplacianA) - avarageRGB(laplacianB)).abs() > 100));
     }
 
     //make smaller copy of picture by compressing 3x3 -> 1 pixel
@@ -152,7 +158,6 @@ class PageDetection
         }
       }
     }
-
 
     //create an array of RGB values of each pixel and applay Gaussian filter for noice removal:
     //121
@@ -196,7 +201,7 @@ class PageDetection
       }
     }
 
-    //use Laplacian Algorithm to find edges
+    //use Laplacian Algorithm
     for (int i = 2; i < width - 1; i++) {
       for (int o = 2; o < height - 1; o++) {
         visited[i][o] = false;
@@ -222,64 +227,89 @@ class PageDetection
     visited[((width - 6) ~/ distance) * distance][distance] = true;
     visited[((width - 6) ~/ distance) * distance][((height - 6) ~/ distance) * distance] = true;
 
-    //do usuniecia
-    //print(edge(Pair(((width - 6) ~/ distance) * distance, ((height - 6) ~/ distance) * distance), Pair(((width - 6) ~/ distance) * distance, ((height - 6) ~/ distance) * distance - distance)));
-    //exit(0);
-    //dotad
+    //Breadth First Search to find borders of the page
+    while(queue.isNotEmpty) {
+      dynamic a = queue.first;
+      queue.removeFirst();
+
+      if (a.first - distance >= distance && visited[a.first - distance][a.second] == false
+            && edge(a, Pair(a.first - distance, a.second)) == false) {
+        queue.add(Pair(a.first - distance, a.second));
+        visited[a.first - distance][a.second] = true;
+      }
+      if (a.first + distance <= ((width - 6) ~/ distance) * distance && visited[a.first + distance][a.second] == false
+            && edge(a, Pair(a.first + distance, a.second)) == false) {
+        queue.add(Pair(a.first + distance, a.second));
+        visited[a.first + distance][a.second] = true;
+      }
+      if (a.second - distance >= distance && visited[a.first][a.second - distance] == false
+            && edge(a, Pair(a.first, a.second - distance)) == false) {
+        queue.add(Pair(a.first, a.second - distance));
+        visited[a.first][a.second - distance] = true;
+      }
+      if (a.second + distance <= ((height - 6) ~/ distance) * distance && visited[a.first][a.second + distance] == false
+            && edge(a, Pair(a.first, a.second + distance)) == false) {
+        queue.add(Pair(a.first, a.second + distance));
+        visited[a.first][a.second + distance] = true;
+      }
+    }
+
+    for (int i = distance; i <= ((width - 6) ~/ distance) * distance; i += distance) {
+      for (int o = distance; o <= ((height - 6) ~/ distance) * distance; o += distance) {
+        agent[i][o] = Pair(i, o);
+        quantity[i][o] = 1;
+      }
+    }
+
+    for (int i = distance; i <= ((width - 6) ~/ distance) * distance; i += distance) {
+      for (int o = distance; o <= ((height - 6) ~/ distance) * distance; o += distance) {
+        if (visited[i][o] == false) {
+          if (i - distance >= distance && visited[i - distance][o] == false)
+            union(Pair(i, o), Pair(i - distance, o));
+          if (i + distance <= ((width - 6) ~/ distance) * distance && visited[i + distance][o] == false)
+            union(Pair(i, o), Pair(i + distance, o));
+          if (o - distance >= distance && visited[i][o - distance] == false)
+            union(Pair(i, o), Pair(i, o - distance));
+          if (o + distance <= ((height - 6) ~/ distance) * distance && visited[i][o + distance] == false)
+            union(Pair(i, o), Pair(i, o + distance));
+        }
+      }
+    }
 
     int startx = width ~/ 2;
     int starty = height ~/ 2;
     dynamic corners = new List();
     for (int i = 0; i < 4; i++) corners.add(Pair(startx, starty));
 
-    //Breadth First Search to find borders of the page
-    while(queue.isNotEmpty) {
-      dynamic a = queue.first;
-      queue.removeFirst();
-
-      if (a.first - distance > 1 && visited[a.first - distance][a.second] == false && edge(a, Pair(a.first - distance, a.second)) == false) {
-        queue.add(Pair(a.first - distance, a.second));
-        visited[a.first - distance][a.second] = true;
+    //find the farthest point from the center of image on each quarter
+    for (int i = distance; i <= ((width - 6) ~/ distance) * distance; i += distance) {
+      for (int o = distance; o <= ((height - 6) ~/ distance) * distance; o += distance) {
+        if (visited[i][o] == false && quantity[i][o] >= 400) {
+          if (i >= startx && o >= starty &&
+              square(i - startx) + square(o - starty) >
+                  square(corners[0].first - startx) +
+                      square(corners[0].second - starty))
+            corners[0] = Pair(i, o);
+          if (i <= startx && o >= starty &&
+              square(i - startx) + square(o - starty) >
+                  square(corners[1].first - startx) +
+                      square(corners[1].second - starty))
+            corners[1] = Pair(i, o);
+          if (i <= startx && o <= starty &&
+              square(i - startx) + square(o - starty) >
+                  square(corners[2].first - startx) +
+                      square(corners[2].second - starty))
+            corners[2] = Pair(i, o);
+          if (i >= startx && o <= starty &&
+              square(i - startx) + square(o - starty) >
+                  square(corners[3].first - startx) +
+                      square(corners[3].second - starty))
+            corners[3] = Pair(i, o);
+        }
       }
-      if (a.first + distance < width - 1 && visited[a.first + distance][a.second] == false && edge(a, Pair(a.first + distance, a.second)) == false) {
-        queue.add(Pair(a.first + distance, a.second));
-        visited[a.first + distance][a.second] = true;
-      }
-      if (a.second - distance > 1 && visited[a.first][a.second - distance] == false && edge(a, Pair(a.first, a.second - distance)) == false) {
-        queue.add(Pair(a.first, a.second - distance));
-        visited[a.first][a.second - distance] = true;
-      }
-      if (a.second + distance < height - 1 && visited[a.first][a.second + distance] == false && edge(a, Pair(a.first, a.second + distance)) == false) {
-        queue.add(Pair(a.first, a.second + distance));
-        visited[a.first][a.second + distance] = true;
-      }
-
-      /*find the farthest point of the paper on each quarter - those should be corners of page
-      if (a.first >= startx && a.second >= starty &&
-          square(a.first - startx) + square(a.second - starty) >
-              square(corners[0].first - startx) +
-                  square(corners[0].second - starty))
-        corners[0] = a;
-      if (a.first <= startx && a.second >= starty &&
-          square(a.first - startx) + square(a.second - starty) >
-              square(corners[1].first - startx) +
-                  square(corners[1].second - starty))
-        corners[1] = a;
-      if (a.first <= startx && a.second <= starty &&
-          square(a.first - startx) + square(a.second - starty) >
-              square(corners[2].first - startx) +
-                  square(corners[2].second - starty))
-        corners[2] = a;
-      if (a.first >= startx && a.second <= starty &&
-          square(a.first - startx) + square(a.second - starty) >
-              square(corners[3].first - startx) +
-                  square(corners[3].second - starty))
-        corners[3] = a;
-       */
     }
 
-
-    //do usuniecia
+        //do usuniecia
     if (bigPicture == false) {
       for (int i = 3; i < width - 2; i++) {
         for (int o = 3; o < height - 2; o++)
@@ -291,25 +321,55 @@ class PageDetection
         for (int o = 6; o < (picture.height ~/3) * 3 - 6; o++)
           picture[i + o * picture.width] = getintcolor(laplacian[i~/3][o~/3]);
       }
-      for (int i = 6; i < (picture.width ~/3) * 3 - 6; i++) {
-        for (int o = 6; o < (picture.height ~/3) * 3 - 6; o++)
-          if (visited[i ~/ 3][o ~/ 3] == true) picture[i + o * picture.width] = getintcolor(RGB(0, 0, 255));
+      for (int i = distance; i <= ((width - 6) ~/ distance) * distance; i += distance) {
+        for (int o = distance; o <= ((height - 6) ~/ distance) * distance; o += distance) {
+          if (visited[i][o] == true ||
+              (visited[i][o] == false &&
+                  quantity[find(Pair(i,o)).first][find(Pair(i, o)).second] < 400)) {
+            picture[3 * i - 1 + 3 * o * picture.width] =
+                getintcolor(RGB(0, 0, 255));
+            picture[3 * i + 3 * o * picture.width] = getintcolor(RGB(0, 0, 255));
+            picture[3 * i + 1 + 3 * o * picture.width] =
+                getintcolor(RGB(0, 0, 255));
+            picture[3 * i - 1 + 3 * o * picture.width - picture.width] =
+                getintcolor(RGB(0, 0, 255));
+            picture[3 * i +  3 * o * picture.width - picture.width] =
+                getintcolor(RGB(0, 0, 255));
+            picture[3 * i + 1 + 3 * o * picture.width - picture.width] =
+                getintcolor(RGB(0, 0, 255));
+            picture[3 * i - 1 + 3 * o * picture.width + picture.width] =
+                getintcolor(RGB(0, 0, 255));
+            picture[3 * i + 3 * o * picture.width + picture.width] =
+                getintcolor(RGB(0, 0, 255));
+            picture[3 * i + 1 + 3 * o * picture.width + picture.width] =
+                getintcolor(RGB(0, 0, 255));
+          }
+        }
       }
     }
-
-
-    File('img_done.png').writeAsBytesSync(encodePng(picture));
-    exit(0);
     //dotad
+    corners[0] = Pair(corners[0].first - 10, corners[0].second - 10);
+    corners[1] = Pair(corners[1].first + 10, corners[1].second - 10);
+    corners[2] = Pair(corners[2].first + 10, corners[2].second + 10);
+    corners[3] = Pair(corners[3].first - 10, corners[3].second + 10);
 
     for (int i=0; i<4; i++)
     {
       print(corners[i].first);
       print(corners[i].second);
       print("kolejny");
-
+      for (int j=corners[i].first-5; j<=corners[i].first+5; j++) {
+        for (int z=corners[i].second-5; z<=corners[i].second+5; z++) {
+          picture[3*j + 3*z*picture.width] = getintcolor(RGB(0, 255, 0));
+        }
+      }
     }
 
-    return null;
+    //do usuniecia
+    File('img_done.png').writeAsBytesSync(encodePng(picture));
+    exit(0);
+    //dotad
+
+    return corners;
   }
 }
