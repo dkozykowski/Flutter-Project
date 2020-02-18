@@ -29,8 +29,8 @@ class PageDetection
   static List getPageCoordinates(Image picture) {
     var height = picture.height;
     var width = picture.width;
-
     bool bigPicture = false;
+    
     if (width * height > 10e6) {
       bigPicture = true;
       width = width ~/ 3 + 1;
@@ -43,13 +43,6 @@ class PageDetection
     dynamic filtered = new List.generate(width, (_)=> new List(height));
     dynamic agent = new List.generate(width, (_)=> new List(height));
     dynamic quantity = new List.generate(width, (_)=> new List(height));
-
-    //do usuniecia
-    getintcolor(dynamic a) {
-      return (a.r & 0xff) << 16 | (a.g & 0xff) << 8 | (a.b & 0xff);
-      //(A & 0xff) << 24 | (R & 0xff) << 16 | (G & 0xff) << 8 | (B & 0xff);
-    }
-    //dotad
 
     square(int a) {
       return a * a;
@@ -65,11 +58,12 @@ class PageDetection
       return b;
     }
 
-    //get RGB from android.color system
+    //convert android.color system to RGB values
     getRGB(int a) {
       return RGB((a >> 16) & 0xff, (a >> 8) & 0xff, a & 0xff);
     }
 
+    //set values in the range 0 - 255
     fixRGB(dynamic a) {
       return RGB((a.r).abs(), (a.g).abs(), (a.b).abs());
     }
@@ -87,8 +81,6 @@ class PageDetection
       return (a.r + a.g + a.b);
     }
 
-
-    //Find & Union
     find(dynamic a) {
       if (agent[a.first][a.second] == a) return a;
       agent[a.first][a.second] = find(agent[a.first][a.second]);
@@ -107,7 +99,6 @@ class PageDetection
       agent[a.first][a.second] = a;
     }
 
-
     for (int i = 0; i < width; i++) {
       for (int o = 0; o < height; o++) {
         pixels[i][o] = RGB(0, 0, 0);
@@ -116,9 +107,7 @@ class PageDetection
       }
     }
 
-    //return false if too few white pixels in laplacian colors found
-    //or if no change in colors of the given picture found
-    //otherwise there is an edge, return true
+    //check if there is sharp difference in brightness between two points
     edge(dynamic a, dynamic b) {
       dynamic laplacianA = RGB(0, 0, 0);
       dynamic laplacianB = RGB(0, 0, 0);
@@ -135,7 +124,7 @@ class PageDetection
       return ((avarageRGB(laplacianB)-avarageRGB(laplacianA)).abs() > 220);
     }
 
-    //make smaller copy of picture by compressing 3x3 -> 1 pixel
+    //compress picture: 3x3 -> 1 pixel
     if (bigPicture == true) {
       for (int i = 0; i < (width - 1) * 3; i++) {
         for (int o = 0; o < (height - 1) * 3; o++) {
@@ -201,7 +190,7 @@ class PageDetection
       }
     }
 
-    //use Laplacian Algorithm
+    //use Laplacian Algorithm to find sharp brightness changes
     for (int i = 2; i < width - 1; i++) {
       for (int o = 2; o < height - 1; o++) {
         visited[i][o] = false;
@@ -261,6 +250,9 @@ class PageDetection
       }
     }
 
+    //use find & union algorithm to connect groups of pixels with similar laplacian color
+    //if there is a group of bright pixels, but there are only few pixels in that group
+    //they are not considered a page, but a noise, we can ignore them in further considerations
     for (int i = distance; i <= ((width - 6) ~/ distance) * distance; i += distance) {
       for (int o = distance; o <= ((height - 6) ~/ distance) * distance; o += distance) {
         if (visited[i][o] == false) {
@@ -282,6 +274,7 @@ class PageDetection
     for (int i = 0; i < 4; i++) corners.add(Pair(startx, starty));
 
     //find the farthest point from the center of image on each quarter
+    //it is considered as a corner of the page
     for (int i = distance; i <= ((width - 6) ~/ distance) * distance; i += distance) {
       for (int o = distance; o <= ((height - 6) ~/ distance) * distance; o += distance) {
         if (visited[i][o] == false && quantity[i][o] >= 400) {
@@ -309,66 +302,18 @@ class PageDetection
       }
     }
 
-        //do usuniecia
-    if (bigPicture == false) {
-      for (int i = 3; i < width - 2; i++) {
-        for (int o = 3; o < height - 2; o++)
-          picture[i + o * picture.width] = getintcolor(laplacian[i][o]);
-      }
+    if (bigPicture == true) {
+      corners[0] = Pair(3 * (corners[0].first - 10), 3 * (corners[0].second - 10));
+      corners[1] = Pair(3 * (corners[1].first + 10), 3 * (corners[1].second - 10));
+      corners[2] = Pair(3 * (corners[2].first + 10), 3 * (corners[2].second + 10));
+      corners[3] = Pair(3 * (corners[3].first - 10), 3 * (corners[3].second + 10));
     }
     else {
-      for (int i = 6; i < (picture.width ~/3) * 3 - 6; i++) {
-        for (int o = 6; o < (picture.height ~/3) * 3 - 6; o++)
-          picture[i + o * picture.width] = getintcolor(laplacian[i~/3][o~/3]);
-      }
-      for (int i = distance; i <= ((width - 6) ~/ distance) * distance; i += distance) {
-        for (int o = distance; o <= ((height - 6) ~/ distance) * distance; o += distance) {
-          if (visited[i][o] == true ||
-              (visited[i][o] == false &&
-                  quantity[find(Pair(i,o)).first][find(Pair(i, o)).second] < 400)) {
-            picture[3 * i - 1 + 3 * o * picture.width] =
-                getintcolor(RGB(0, 0, 255));
-            picture[3 * i + 3 * o * picture.width] = getintcolor(RGB(0, 0, 255));
-            picture[3 * i + 1 + 3 * o * picture.width] =
-                getintcolor(RGB(0, 0, 255));
-            picture[3 * i - 1 + 3 * o * picture.width - picture.width] =
-                getintcolor(RGB(0, 0, 255));
-            picture[3 * i +  3 * o * picture.width - picture.width] =
-                getintcolor(RGB(0, 0, 255));
-            picture[3 * i + 1 + 3 * o * picture.width - picture.width] =
-                getintcolor(RGB(0, 0, 255));
-            picture[3 * i - 1 + 3 * o * picture.width + picture.width] =
-                getintcolor(RGB(0, 0, 255));
-            picture[3 * i + 3 * o * picture.width + picture.width] =
-                getintcolor(RGB(0, 0, 255));
-            picture[3 * i + 1 + 3 * o * picture.width + picture.width] =
-                getintcolor(RGB(0, 0, 255));
-          }
-        }
-      }
+      corners[0] = Pair(corners[0].first - 10, corners[0].second - 10);
+      corners[1] = Pair(corners[1].first + 10, corners[1].second - 10);
+      corners[2] = Pair(corners[2].first + 10, corners[2].second + 10);
+      corners[3] = Pair(corners[3].first - 10, corners[3].second + 10);
     }
-    //dotad
-    corners[0] = Pair(corners[0].first - 10, corners[0].second - 10);
-    corners[1] = Pair(corners[1].first + 10, corners[1].second - 10);
-    corners[2] = Pair(corners[2].first + 10, corners[2].second + 10);
-    corners[3] = Pair(corners[3].first - 10, corners[3].second + 10);
-
-    for (int i=0; i<4; i++)
-    {
-      print(corners[i].first);
-      print(corners[i].second);
-      print("kolejny");
-      for (int j=corners[i].first-5; j<=corners[i].first+5; j++) {
-        for (int z=corners[i].second-5; z<=corners[i].second+5; z++) {
-          picture[3*j + 3*z*picture.width] = getintcolor(RGB(0, 255, 0));
-        }
-      }
-    }
-
-    //do usuniecia
-    File('img_done.png').writeAsBytesSync(encodePng(picture));
-    exit(0);
-    //dotad
 
     return corners;
   }
