@@ -2,21 +2,22 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:image/image.dart';
-import 'lib/interfaces/Coordinate.dart';
+import 'package:flutter_app/interfaces/Coordinate.dart';
 import 'lib/core/PageTransform.dart';
-
+import 'lib/core/PageDetection.dart';
 
 
 int main() {
-  Image img = decodeImage(File('hard2.jpg').readAsBytesSync());
+  Image img = decodeImage(File('test.jpg').readAsBytesSync());
 
-  List cords = new List(4);
-  cords[0] = new Coordinate(418,243);
-  cords[1] = new Coordinate(946,322);
-  cords[2] = new Coordinate(15,870);
-  cords[3] = new Coordinate(712,1100);
+  PageDetection detector = new PageDetection(img);
+
+  List<Pair> corners = detector.getPageCoordinates();
+
+  List<Coordinate> cords = new List<Coordinate>.generate(4, (int i) => new Coordinate(corners[i].first, corners[i].second));
 
   PageTransform transform = PageTransform(cords, img);
+  transform.fixCornerOrder();
   transform.transformPage();
 
   return 0;

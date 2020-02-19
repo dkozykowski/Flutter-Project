@@ -159,10 +159,6 @@ class PageTransform {
         }
       }
       _rotatePageEdges(angle, center);
-      fixedMatrix[_cords[0].y][_cords[0].x] = new Pixel(255,0,0);
-      fixedMatrix[_cords[1].y][_cords[1].x] = new Pixel(255,0,0);
-      fixedMatrix[_cords[2].y][_cords[2].x] = new Pixel(255,0,0);
-      fixedMatrix[_cords[3].y][_cords[3].x] = new Pixel(255,0,0);
       return fixedMatrix;
     }
     return pixels;
@@ -219,6 +215,34 @@ class PageTransform {
     } else {
      return pixels;
     }
+  }
+
+  void fixCornerOrder() {
+    List<Coordinate> fixed = new List<Coordinate>(4);
+
+    List<Coordinate> sortedY = new List<Coordinate>.from(this._cords);
+    sortedY.sort((a, b) => (a.y > b.y)?1:0);
+    List<Coordinate> sortedX = new List<Coordinate>.from(this._cords);
+    sortedX.sort((a, b) => (a.x > b.x)?1:0);
+
+    for(int i=0; i < 4; i++) {
+      Coordinate current = this._cords[i];
+
+      if(current == sortedX[0] || current == sortedX[1]) {
+        if(current == sortedY[0] || current == sortedY[1]) {
+          fixed[0] = current;
+        } else {
+          fixed[2] = current;
+        }
+      } else {
+        if(current == sortedY[0] || current == sortedY[1]) {
+          fixed[1] = current;
+        } else {
+          fixed[3] = current;
+        }
+      }
+    }
+    this._cords = fixed;
   }
 
   List<List<Pixel>> _verticalProjection(List<List<Pixel>> pixels) {

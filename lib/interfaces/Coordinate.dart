@@ -22,4 +22,6 @@ class Coordinate
   get y {
     return _y;
   }
+
+  bool operator ==(other) => _x == other.x && _y == other._y;
 }
