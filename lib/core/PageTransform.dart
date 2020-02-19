@@ -1,4 +1,5 @@
 
+
 import 'package:flutter_app/interfaces/Coordinate.dart';
 import 'package:flutter_app/interfaces/Pixel.dart';
 import 'package:image/image.dart';
@@ -71,6 +72,30 @@ class PageTransform {
       }
     }
     return fixedMatrix;
+  }
+
+  List<List<Pixel>> _differentialFiltering(List<List<Pixel>> pixels) {
+    const filteringThreshold = 100;
+
+    for(int i=0; i < pixels.length; i++) {
+      for(int j=0; j < pixels[0].length; j++) {
+        Pixel pix = pixels[i][j];
+        int sum = pix.r + pix.b + pix.g;
+        double multiplier = 1.2;
+
+        if(sum < filteringThreshold * 3) {
+          pix.r = max(0,(pix.r / multiplier).round());
+          pix.g = max(0,(pix.g / multiplier).round());
+          pix.b = max(0,(pix.b / multiplier).round());
+        } else {
+          pix.r = min(255,(pix.r * multiplier).round());
+          pix.g = min(255,(pix.g * multiplier).round());
+          pix.b = min(255,(pix.b * multiplier).round());
+        }
+        pixels[i][j] = pix;
+      }
+    }
+    return pixels;
   }
 
   Coordinate _calculatePageCenter() {
