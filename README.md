@@ -1,16 +1,11 @@
 # flutter_app
+We are looking forward to create an innovative mobile application that would expedite and facilitate notes creating and storing them as PDF-notebook.  
 
-A new Flutter project.
+## Features
+- searching for subtitles on the given photo and text recognition using Deep Learning Methods [Keras Python Library](https://keras.io)
+- saving processed notes as a PDF file
+- PDF files menagement in user's private built-in PDF-notebooks library 
 
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://flutter.dev/docs/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://flutter.dev/docs/cookbook)
-
-For help getting started with Flutter, view our
-[online documentation](https://flutter.dev/docs), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Authors
+- [Maciej Łukasik](https://github.com/maciejBart99)
+- [Dawid Kożykowski](https://github.com/dkozykowski)
