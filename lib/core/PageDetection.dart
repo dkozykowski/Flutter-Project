@@ -58,11 +58,18 @@ class PageDetection
     return (_a.r + _a.g + _a.b);
   }
 
+<<<<<<< HEAD
   // Find & Union algorithm
   Pair _find(Pair _a, List<List<Pair>> _agent) {
     if (_agent[_a[0]][_a[1]] == _a) return _a;
     _agent[_a[0]][_a[1]] = _find(_agent[_a[0]][_a[1]], _agent);
     return _agent[_a[0]][_a[1]];
+=======
+  Pair _find(Pair _a, List<List<Pair>> _agent) {
+    if (_agent[_a.first][_a.second] == _a) return _a;
+    _agent[_a.first][_a.second] = _find(_agent[_a.first][_a.second], _agent);
+    return _agent[_a.first][_a.second];
+>>>>>>> e92047a159066e066cfaf474174366578d006b61
   }
 
   void _union(Pair _a, Pair _b, List<List<Pair>> _agent, List<List<int>> _quantity) {
@@ -81,6 +88,7 @@ class PageDetection
   bool _edge(Pair _a, Pair _b, List<List<RGB>> _laplacian, _width, _height) {
     RGB _laplacianA = RGB(0, 0, 0);
     RGB _laplacianB = RGB(0, 0, 0);
+<<<<<<< HEAD
     for (int i = _maxint(_a[0] - 1, 1); i <= _minint(_a[0] + 1, _width - 2); i++) {
       for (int o = _maxint(_a[1] - 1, 1); o <= _minint(_a[1] + 1, _height - 2); o++) {
         _laplacianA += _laplacian[i][o];
@@ -88,6 +96,15 @@ class PageDetection
     }
     for (int i = _maxint(_b[0] - 1, 1); i <= _minint(_b[0] + 1, _width - 2); i++) {
       for (int o = _maxint(_b[1] - 1, 1); o <= _minint(_b[1] + 1, _height - 2); o++) {
+=======
+    for (int i = _maxint(_a.first - 1, 1); i <= _minint(_a.first + 1, _width - 2); i++) {
+      for (int o = _maxint(_a.second - 1, 1); o <= _minint(_a.second + 1, _height - 2); o++) {
+        _laplacianA += _laplacian[i][o];
+      }
+    }
+    for (int i = _maxint(_b.first - 1, 1); i <= _minint(_b.first + 1, _width - 2); i++) {
+      for (int o = _maxint(_b.second - 1, 1); o <= _minint(_b.second + 1, _height - 2); o++) {
+>>>>>>> e92047a159066e066cfaf474174366578d006b61
         _laplacianB += _laplacian[i][o];
       }
     }
@@ -196,6 +213,7 @@ class PageDetection
       Pair a = queue.first;
       queue.removeFirst();
 
+<<<<<<< HEAD
       if (a[0] - distance >= distance && visited[a[0] - distance][a[1]] == false
           && _edge(a, Pair(a[0] - distance, a[1]), laplacian, width, height) == false) {
         queue.add(Pair(a[0] - distance, a[1]));
@@ -215,6 +233,27 @@ class PageDetection
           && _edge(a, Pair(a[0], a[1] + distance), laplacian, width, height) == false) {
         queue.add(Pair(a[0], a[1] + distance));
         visited[a[0]][a[1] + distance] = true;
+=======
+      if (a.first - distance >= distance && visited[a.first - distance][a.second] == false
+          && _edge(a, Pair(a.first - distance, a.second), laplacian, width, height) == false) {
+        queue.add(Pair(a.first - distance, a.second));
+        visited[a.first - distance][a.second] = true;
+      }
+      if (a.first + distance <= ((width - 6) ~/ distance) * distance && visited[a.first + distance][a.second] == false
+          && _edge(a, Pair(a.first + distance, a.second), laplacian, width, height) == false) {
+        queue.add(Pair(a.first + distance, a.second));
+        visited[a.first + distance][a.second] = true;
+      }
+      if (a.second - distance >= distance && visited[a.first][a.second - distance] == false
+          && _edge(a, Pair(a.first, a.second - distance), laplacian, width, height) == false) {
+        queue.add(Pair(a.first, a.second - distance));
+        visited[a.first][a.second - distance] = true;
+      }
+      if (a.second + distance <= ((height - 6) ~/ distance) * distance && visited[a.first][a.second + distance] == false
+          && _edge(a, Pair(a.first, a.second + distance), laplacian, width, height) == false) {
+        queue.add(Pair(a.first, a.second + distance));
+        visited[a.first][a.second + distance] = true;
+>>>>>>> e92047a159066e066cfaf474174366578d006b61
       }
     }
 
@@ -248,13 +287,18 @@ class PageDetection
     List <Pair> corners = new List();
     for (int i = 0; i < 4; i++) corners.add(Pair(startx, starty));
 
+<<<<<<< HEAD
     // find the farthest point from the center of image on each quarter
+=======
+    // _find the farthest point from the center of image on each quarter
+>>>>>>> e92047a159066e066cfaf474174366578d006b61
     // it is considered as a corner of the page
     for (int i = distance; i <= ((width - 6) ~/ distance) * distance; i += distance) {
       for (int o = distance; o <= ((height - 6) ~/ distance) * distance; o += distance) {
         if (visited[i][o] == false && quantity[i][o] >= 400) {
           if (i >= startx && o >= starty &&
               _square(i - startx) + _square(o - starty) >
+<<<<<<< HEAD
                   _square(corners[0][0] - startx) +
                       _square(corners[0][1] - starty))
             corners[0] = Pair(i, o);
@@ -272,6 +316,25 @@ class PageDetection
               _square(i - startx) + _square(o - starty) >
                   _square(corners[3][0] - startx) +
                       _square(corners[3][1] - starty))
+=======
+                  _square(corners[0].first - startx) +
+                      _square(corners[0].second - starty))
+            corners[0] = Pair(i, o);
+          if (i <= startx && o >= starty &&
+              _square(i - startx) + _square(o - starty) >
+                  _square(corners[1].first - startx) +
+                      _square(corners[1].second - starty))
+            corners[1] = Pair(i, o);
+          if (i <= startx && o <= starty &&
+              _square(i - startx) + _square(o - starty) >
+                  _square(corners[2].first - startx) +
+                      _square(corners[2].second - starty))
+            corners[2] = Pair(i, o);
+          if (i >= startx && o <= starty &&
+              _square(i - startx) + _square(o - starty) >
+                  _square(corners[3].first - startx) +
+                      _square(corners[3].second - starty))
+>>>>>>> e92047a159066e066cfaf474174366578d006b61
             corners[3] = Pair(i, o);
         }
       }
